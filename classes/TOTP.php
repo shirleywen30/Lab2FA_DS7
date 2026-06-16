@@ -44,17 +44,18 @@ class TOTP {
         return $binary;
     }
 
+    // Obtiene el intervalo de tiempo actual (cambia cada 30 segundos)
     public static function generarCodigo(string $secret, ?int $timeSlice = null): string {
         if ($timeSlice === null) {
             $timeSlice = floor(time() / 30);
         }
 
+        // decodifica el secretkey de Base32 a bytes y aplica HMAC-SHA1
         $secretKey = self::base32Decode($secret);
 
-        $time = pack('N*', 0) . pack('N*', $timeSlice);
-        $hash = hash_hmac('sha1', $time, $secretKey, true);
-
-        $offset = ord(substr($hash, -1)) & 0x0F;
+        $time = pack('N*', 0) . pack('N*', $timeSlice); // convierte el num del intervalo de tiempo en bytes binarios
+        $hash = hash_hmac('sha1', $time, $secretKey, true); // mezcla ese tiempo con secreto y produce 20 bytes... 
+        $offset = ord(substr($hash, -1)) & 0x0F; // de los que se extraen los primeros 6 digitos del codigo
 
         $binary = (
             ((ord($hash[$offset]) & 0x7F) << 24) |
@@ -68,6 +69,7 @@ class TOTP {
         return str_pad((string)$otp, 6, '0', STR_PAD_LEFT);
     }
 
+    // acepta +-1 intervalo (30 segundos) para compensar diferencias de reloj
     public static function validarCodigo(string $secret, string $codigo): bool {
         $codigo = trim($codigo);
 

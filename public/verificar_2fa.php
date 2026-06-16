@@ -1,6 +1,7 @@
 <?php
 session_start();
 
+// si no paso por el login primero, redirige. no se puede saltar este paso
 if (!isset($_SESSION['pre_2fa'])) {
     header('Location: login.php');
     exit;
@@ -21,8 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $auth = new Auth($pdo);
 
-        if ($auth->verificar2FA($_POST['codigo'] ?? '')) {
-            header('Location: dashboard.php');
+        if ($auth->verificar2FA($_POST['codigo'] ?? '')) { // verifica el codigo de 6 digitos
+            header('Location: dashboard.php'); // si es correcto, establece sesion completa y redirige
             exit;
         }
 
@@ -30,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$token = CSRF::generarToken();
+$token = CSRF::generarToken(); // genera el token para incluirlo en el form
 ?>
 <!DOCTYPE html>
 <html lang="es">

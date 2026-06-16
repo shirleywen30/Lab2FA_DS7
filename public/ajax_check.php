@@ -1,12 +1,13 @@
 <?php
 session_start();
-header('Content-Type: application/json');
+header('Content-Type: application/json'); // indica que la respuesta es JSON y no HTML
 
 require_once __DIR__ . '/../classes/Database.php';
 require_once __DIR__ . '/../classes/Sanitizador.php';
 
 $db  = new Database();
 $pdo = $db->conectar();
+
 
 $campo = $_GET['campo'] ?? '';
 $valor = trim($_GET['valor'] ?? '');
@@ -35,6 +36,7 @@ if ($valor === '') {
 $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE {$columna} = :valor LIMIT 1");
 $stmt->execute([':valor' => $valor]);
 
-// true  → disponible (válido para jQuery Validate)
-// string → no disponible (jQuery Validate lo muestra como mensaje de error)
+// JQuery Validate interpreta:
+// true  → campo disponible, formulario valido
+// string → campo no disponible, muestra el string como mensaje de error
 echo json_encode($stmt->fetch() === false ? true : $error);

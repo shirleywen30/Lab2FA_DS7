@@ -1,24 +1,25 @@
 <?php
 session_start();
 
+// se cargan las clases necesarias para este archivo
 require_once __DIR__ . '/../classes/Database.php';
 require_once __DIR__ . '/../classes/Auth.php';
 require_once __DIR__ . '/../classes/CSRF.php';
 
 $db  = new Database();
-$pdo = $db->conectar();
+$pdo = $db->conectar(); // conecta la bd
 
 $mensaje = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!CSRF::validarToken($_POST['csrf_token'] ?? null)) {
+    if (!CSRF::validarToken($_POST['csrf_token'] ?? null)) { // verifica que el token sea valido
         $mensaje = 'Token CSRF inválido. Por favor recarga la página.';
     } else {
         $auth      = new Auth($pdo);
         $resultado = $auth->login($_POST['usuario'] ?? '', $_POST['password'] ?? '');
 
         if ($resultado['ok']) {
-            header('Location: verificar_2fa.php');
+            header('Location: verificar_2fa.php'); // si la contraseña es correcta, pasa al segundo factor
             exit;
         }
 
@@ -26,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$token = CSRF::generarToken();
+$token = CSRF::generarToken(); // genera el token CSRF para incluirlo en el formulario
 ?>
 <!DOCTYPE html>
 <html lang="es">

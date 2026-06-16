@@ -1,13 +1,14 @@
 <?php
 session_start();
 
+// pagina protegida: solo accesible si el usuario completo el 2FA
 if (!isset($_SESSION['autenticado']) || $_SESSION['autenticado'] !== 'SI') {
     header('Location: login.php');
     exit;
 }
 
 require_once __DIR__ . '/../classes/CSRF.php';
-$token = CSRF::generarToken();
+$token = CSRF::generarToken(); // token para proteger las peticiones AJAX que se hacen desde esta pagina
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -60,6 +61,7 @@ $token = CSRF::generarToken();
 </div>
 
 <script>
+// convierte los caracteres peligrosos en su version inofensiva antes de insertar el hash en la pagina
 (function () {
     function esc(str) {
         var d = document.createElement('div');

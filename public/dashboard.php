@@ -1,6 +1,7 @@
 <?php
 session_start();
 
+// si no esta autenticado completamente, lo manda al login
 if (!isset($_SESSION['autenticado']) || $_SESSION['autenticado'] !== 'SI') {
     header('Location: login.php');
     exit;

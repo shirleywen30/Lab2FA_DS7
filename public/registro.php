@@ -10,21 +10,21 @@ $db  = new Database();
 $pdo = $db->conectar();
 
 $mensaje = '';
-$qr      = '';
-$secreto = '';
+$qr      = '';  // url de la imagen del codigo QR
+$secreto = ''; // clave secreta TOTP del usuario recien registrado
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validarToken($_POST['csrf_token'] ?? null)) {
         $mensaje = 'Token CSRF inválido. Por favor recarga la página.';
     } else {
         $registro  = new Registro($pdo);
-        $resultado = $registro->registrar($_POST);
+        $resultado = $registro->registrar($_POST); // sanitiza, valida e inserta el usuario en la BD
         $mensaje   = $resultado['mensaje'];
 
         if ($resultado['ok']) {
-            $secreto = $resultado['secreto'];
-            $qr      = TOTP::generarURLQR($resultado['usuario'], $secreto);
-            unset($_SESSION['csrf_token']);
+            $secreto = $resultado['secreto']; // recupera el secreto totp generado
+            $qr      = TOTP::generarURLQR($resultado['usuario'], $secreto); // construye la URL del QR para Google Authenticator
+            unset($_SESSION['csrf_token']); // invalida el token para que no se pueda reenviar el formulario
         }
     }
 }
@@ -43,6 +43,7 @@ $token = CSRF::generarToken();
 <div class="container">
     <h1>Crear Cuenta</h1>
 
+    <!-- si el registro fue exitoso, muestra el QR en vez del form -->
     <?php if ($qr): ?>
         <div class="qr-box">
             <h2>¡Registro exitoso!</h2>
@@ -133,7 +134,7 @@ $(function () {
             usuario: {
                 required: true,
                 minlength: 3,
-                remote: {
+                remote: { // <!-- llama a ajax.check.php para verificar si el usuario/correo ya existe en la bd -->
                     url: 'ajax_check.php',
                     type: 'get',
                     data: {
