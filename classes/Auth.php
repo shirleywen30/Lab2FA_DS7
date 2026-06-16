@@ -19,7 +19,8 @@ class Auth {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    // Detecta anomalía: >=5 intentos fallidos del mismo usuario o IP en los últimos 5 minutos
+    // Detecta anomalía: cuenta si hay >=5 intentos fallidos del mismo usuario o IP en los últimos 5 minutos
+    // Se llama DESPUÉS de insertar el intento, así el conteo incluye el intento actual
     private function detectarAnomalia(string $usuario): bool {
         $ip   = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
         $stmt = $this->pdo->prepare(
@@ -32,19 +33,36 @@ class Auth {
     }
 
     // Registra un intento fallido en intentos_login
+    // Primero inserta el intento con anomalia=0, luego verifica si ya hay 5 o más
+    // y actualiza el registro recién insertado a anomalia=1 si corresponde
+
     private function registrarIntento(string $usuario): void {
-        $ip       = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-        $anomalia = $this->detectarAnomalia($usuario) ? 1 : 0;
-        $stmt     = $this->pdo->prepare(
-            'INSERT INTO intentos_login (Usuario, ipRemoto, deteccion_anomalia)
-             VALUES (:usuario, :ip, :anomalia)'
-        );
-        $stmt->execute([':usuario' => $usuario, ':ip' => $ip, ':anomalia' => $anomalia]);
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+
+    // paso 1: insertar el intento actual
+    $stmt = $this->pdo->prepare(
+        'INSERT INTO intentos_login (Usuario, ipRemoto, deteccion_anomalia)
+         VALUES (:usuario, :ip, 0)'
+    );
+    $stmt->execute([':usuario' => $usuario, ':ip' => $ip]);
+
+    $lastId = $this->pdo->lastInsertId();
+
+    // paso 2: contar intentos actuales
+    $conteo = $this->detectarAnomalia($usuario);
+
+    if ($conteo) {
+    $stmt = $this->pdo->prepare(
+        'UPDATE intentos_login SET deteccion_anomalia = 1 
+         WHERE id = :id'
+    );
+    $stmt->execute([':id' => (int)$lastId]);
     }
+}
 
     // Establece la sesión autenticada después de pasar el 2FA
     private function establecerSesion(array $user): void {
-        session_regenerate_id(true);
+        session_regenerate_id(true); // genera nuevo ID de sesión para prevenir Session Fixation
         $_SESSION['autenticado']    = 'SI';
         $_SESSION['fase_qr_ok']     = true;
         $_SESSION['usuario_id']     = $user['id'];
@@ -76,6 +94,7 @@ class Auth {
             return ['ok' => false, 'mensaje' => 'Usuario o contraseña incorrectos.'];
         }
 
+        // contraseña correcta: guarda sesión intermedia hasta que pase el 2FA
         $_SESSION['pre_2fa']             = true;
         $_SESSION['usuario_temporal_id'] = $user['id'];
         $_SESSION['usuario_temporal']    = $user['Usuario'];
@@ -86,7 +105,7 @@ class Auth {
     // Verifica el código TOTP y completa la autenticación
     public function verificar2FA(string $codigo): bool {
         if (!isset($_SESSION['usuario_temporal_id'])) {
-            return false;
+            return false; // no pasó por el login primero
         }
 
         $stmt = $this->pdo->prepare(
@@ -100,7 +119,7 @@ class Auth {
         }
 
         if (!TOTP::validarCodigo($user['secret_2fa'], $codigo)) {
-            $this->registrarIntento($user['Usuario']);
+            $this->registrarIntento($user['Usuario']); // registra el fallo del código 2FA
             return false;
         }
 
